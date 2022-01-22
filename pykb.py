@@ -27,6 +27,7 @@ FG = (255,255,255)
 # wait this long after any acceptable keypress before continuing with event loop
 # to avoid bounces and spamming
 DELAY_MS = 500
+HYSTERESIS_MS = 50
 
 # FPS for display update rate, 60 for minimal responsiveness
 FPS = 60
@@ -36,6 +37,7 @@ allowed_keys = list(range(ord('a'),ord('z')+1)) + list(range(ord('0'),ord('9')+1
 
 # prevent key bounce, spamming
 active_key = None
+active_keypress_time = 0
 
 while True:
 
@@ -49,11 +51,15 @@ while True:
         if event.type == KEYDOWN:
             if event.key in allowed_keys:
                 # if this is a second (or greater) keypress then ignore
+                print(chr(event.key), pygame.time.get_ticks() - active_keypress_time)
                 if active_key:
                     continue
+                if active_keypress_time > 0 and (pygame.time.get_ticks() - active_keypress_time < (DELAY_MS + HYSTERESIS_MS)):
+                    continue
                 active_key = event.key
+                active_keypress_time = pygame.time.get_ticks()
                 screen.fill(BG)
-                key_display = key_font.render(chr(event.key).upper(), True, FG)
+                key_display = key_font.render(chr(active_key).upper(), True, FG)
                 screen.blit(key_display, (horizontal_margin,vertical_margin))
                 pygame.display.update()
                 pygame.time.wait(DELAY_MS)
