@@ -1,5 +1,12 @@
 import pygame, sys
 from pygame.locals import *
+
+# TODO:
+# enable numpad
+# add more characters
+# speak the characters
+# add minimum display time
+
 pygame.init()
 display_info = pygame.display.Info()
 #print(display_info)
