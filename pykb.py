@@ -1,5 +1,28 @@
 import pygame, sys
 from pygame.locals import *
+import os, string, random
+from PIL import Image, ImageDraw, ImageFont
+
+image_options = {}
+
+font = ImageFont.truetype('Monaco.ttf', size=500)
+all_chars = string.ascii_lowercase + "0123456789"
+for ch in all_chars:
+    char = ch.upper()
+    imagedir = f"images/{ch}/"
+    imagefile = imagedir + f"{ch}.png"
+    os.makedirs(imagedir,exist_ok=True)
+    image = Image.new('RGB', (500, 500))
+    dl = ImageDraw.Draw(image)
+    (width,height)=font.getsize(char)
+    xoff=int((500-width)/2)
+    yoff=int((500-height)/2)
+    dl.text((xoff,yoff-50), char, font=font, fill=(255,255,255))
+    image.save(imagefile,"PNG")
+    image_options[ch] = []
+    for (dirpath, dirnames, filenames) in os.walk(imagedir):
+        for filename in filenames:
+            image_options[ch].append(f"images/{ch}/{filename}")
 
 pygame.init()
 
@@ -16,9 +39,6 @@ screen = pygame.display.set_mode((display_width,display_height))
 pygame.display.set_caption("pykb")
 
 clock = pygame.time.Clock()
-
-# font for keycap image display
-key_font = pygame.font.SysFont('arial',keycap_height)
 
 # define colours
 BG = (0,0,0)
@@ -75,8 +95,8 @@ while True:
                 active_key = event.key
                 active_keypress_time = pygame.time.get_ticks()
                 screen.fill(BG)
-                key_display = key_font.render(chr(active_key).upper(), True, FG)
-                screen.blit(key_display, (horizontal_margin,vertical_margin))
+                key_image = pygame.image.load(random.choice(image_options[chr(active_key)]))
+                screen.blit(key_image, (horizontal_margin,vertical_margin))
                 pygame.display.update()
                 pygame.time.wait(DELAY_MS)
 
