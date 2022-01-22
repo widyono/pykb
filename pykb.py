@@ -1,12 +1,6 @@
 import pygame, sys
 from pygame.locals import *
 
-# TODO:
-# enable numpad
-# add more characters
-# speak the characters
-# add minimum display time
-
 pygame.init()
 display_info = pygame.display.Info()
 #print(display_info)
@@ -21,7 +15,7 @@ clock = pygame.time.Clock()
 key_font = pygame.font.SysFont('arial',char_height)
 BG = (0,0,0)
 FG = (255,255,255)
-allowed_keys = list(range(ord('a'),ord('z'))) + list(range(ord('0'),ord('9')))
+allowed_keys = list(range(ord('a'),ord('z')+1)) + list(range(ord('0'),ord('9')+1))
 num_pressed_keys = 0
 while True:
     event = pygame.event.wait()
