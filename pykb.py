@@ -144,6 +144,8 @@ while True:
             sys.exit()
 
         if event.type == KEYDOWN:
+            if event.mod:
+                continue
             if event.key in allowed_keys:
                 # if this is a second (or greater) keypress then ignore
                 if active_key:
