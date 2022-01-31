@@ -9,6 +9,20 @@ from collections import defaultdict
 import argparse
 from pprint import pformat
 
+"""
+Example media structure
+~/pykb-media/a/
+  a.png            # picture of the letter A
+  a.ogg            # sound naming the letter A
+  apple.png        # picture of an apple
+  apple.ogg        # sound of the word apple
+  airplane:1.png   # picture of an airplane
+  airplane:2.png   # picture of a different airplane
+  airplane:1.ogg   # sound of the word airplane
+  airplane:2.ogg   # sound of the word airplane, in another language
+  airplane:3.ogg   # sound of an airplane in flight
+"""
+
 # where to store/find our images and sounds
 mediadir = Path.home() / "pykb-media"
 
@@ -109,13 +123,30 @@ if not found_font:
     exit(1)
 dprint(f"Using font: {found_font_name}")
 
+def load_image(pathname):
+    exiftags = Image.open(pathname).getexif()
+    image = pygame.image.load(pathname)
+    if EXIFTAG_ORIENTATION in exiftags:
+        if exiftags[EXIFTAG_ORIENTATION] == 3:
+            image=pygame.transform.rotate(image, 180)
+        elif exiftags[EXIFTAG_ORIENTATION] == 6:
+            image=pygame.transform.rotate(image, 270)
+        elif exiftags[EXIFTAG_ORIENTATION] == 8:
+            image=pygame.transform.rotate(image, 90)
+    (img_x, img_y) = image.get_size()
+    img_max = max(img_x, img_y)
+    img_ratio_x = img_x / img_max
+    img_ratio_y = img_y / img_max
+    image = pygame.transform.scale(image, (int(IMG_X * img_ratio_x), int(IMG_Y * img_ratio_y)))
+    return image
+
 for keycap in all_keycaps:
 
     """
         media_options = {
             "keycap_name1": {
-                "basename1":["image_filename1", "sound_filename1"], # None if no such file
-                "basename2":["image_filename2", "sound_filename2"],
+                "basename1":[["image_filename1"], ["sound_filename1"]], # None if no such file
+                "basename2":[["image_filename2"], ["sound_filename2_1", "sound_filename2_2"]],
                 ...
             }
         }
@@ -142,7 +173,10 @@ for keycap in all_keycaps:
             colonparts=Path(filename).stem.split(':')
             fullpath=str(keycap_mediadir / f"{filename}")
             if extension in EXT_IMG:
-                media_options[keycap][colonparts[0]][MEDIA_IMG].append(fullpath)
+                if args.cache:
+                    media_options[keycap][colonparts[0]][MEDIA_IMG].append(load_image(fullpath))
+                else:
+                    media_options[keycap][colonparts[0]][MEDIA_IMG].append(fullpath)
             elif extension in EXT_SND:
                 media_options[keycap][colonparts[0]][MEDIA_SND].append(fullpath)
             else:
@@ -203,22 +237,9 @@ while True:
                 keycap_random_basename = random.choice(list(media_options[chr(active_key)].keys()))
                 keycap_media = media_options[chr(active_key)][keycap_random_basename]
                 if len(keycap_media[MEDIA_IMG]):
-                    keycap_image_filename = keycap_media[MEDIA_IMG][0]
-                    exiftags = Image.open(keycap_image_filename).getexif()
-                    keycap_image = pygame.image.load(keycap_image_filename)
-                    if EXIFTAG_ORIENTATION in exiftags:
-                        if exiftags[EXIFTAG_ORIENTATION] == 3:
-                            keycap_image=pygame.transform.rotate(keycap_image, 180)
-                        elif exiftags[EXIFTAG_ORIENTATION] == 6:
-                            keycap_image=pygame.transform.rotate(keycap_image, 270)
-                        elif exiftags[EXIFTAG_ORIENTATION] == 8:
-                            keycap_image=pygame.transform.rotate(keycap_image, 90)
-
-                    (img_x, img_y) = keycap_image.get_size()
-                    img_max = max(img_x, img_y)
-                    img_ratio_x = img_x / img_max
-                    img_ratio_y = img_y / img_max
-                    keycap_image = pygame.transform.scale(keycap_image, (int(IMG_X * img_ratio_x), int(IMG_Y * img_ratio_y)))
+                    keycap_image = random.choice(keycap_media[MEDIA_IMG])
+                    if not args.cache:
+                        keycap_image = load_image(keycap_image)
                     screen.blit(keycap_image, (horizontal_margin,vertical_margin))
                 if len(keycap_media[MEDIA_SND]):
                     pygame.mixer.music.load(random.choice(keycap_media[MEDIA_SND]))
