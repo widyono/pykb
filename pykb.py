@@ -26,9 +26,6 @@ Example media structure
 # where to store/find our images and sounds
 mediadir = Path.home() / "pykb-media"
 
-# which keycaps to process
-all_keycaps = string.ascii_lowercase + "0123456789"
-
 # media file extensions
 EXT_IMG = (".jpg",".png",".gif",".jpeg")
 # note: for best results, sound files should have built-in silence at end to allow for measured looping
@@ -56,23 +53,8 @@ HYSTERESIS_MS = 30
 # FPS for display update rate, 60 for minimal responsiveness
 FPS = 60
 
-# which key values are accepted for feedback
-numpad_keys = list(range(K_KP1,K_KP0 + 1))
-alpha_keys = list(range(ord('a'),ord('z')+1))
-number_keys = list(range(ord('0'),ord('9')+1))
-allowed_keys = alpha_keys + number_keys + numpad_keys
-numpad_to_number = {
-        K_KP1:ord('1'),
-        K_KP2:ord('2'),
-        K_KP3:ord('3'),
-        K_KP4:ord('4'),
-        K_KP5:ord('5'),
-        K_KP6:ord('6'),
-        K_KP7:ord('7'),
-        K_KP8:ord('8'),
-        K_KP9:ord('9'),
-        K_KP0:ord('0'),
-}
+# which keys to process
+allowed_keys = string.ascii_lowercase + string.digits
 
 # prevent key bounce, spamming
 active_key = None
@@ -140,7 +122,7 @@ def load_image(pathname):
     image = pygame.transform.scale(image, (int(IMG_X * img_ratio_x), int(IMG_Y * img_ratio_y)))
     return image
 
-for keycap in all_keycaps:
+for keycap in allowed_keys:
 
     """
         media_options = {
@@ -221,21 +203,26 @@ while True:
             sys.exit()
 
         if event.type == KEYDOWN:
-            if event.mod:
+            dprint(f"KEYDOWN: {event}")
+            # ignore if just a modifier key by itself was pressed
+            if event.mod and not event.unicode:
                 continue
-            if event.key in allowed_keys:
+            # pygame processes individual key events before triggering QUIT meta-event
+            if event.mod & pygame.KMOD_META and event.unicode == 'q':
+                pygame.quit()
+                sys.exit()
+            # if caps lock is released, unicode is empty and mod is false
+            if event.unicode and event.unicode.lower() in allowed_keys:
                 # if this is a second (or greater) keypress then ignore
                 if active_key:
                     continue
                 if active_keypress_time > 0 and (pygame.time.get_ticks() - active_keypress_time < (args.duration + HYSTERESIS_MS)):
                     continue
-                if event.key in numpad_keys:
-                    event.key = numpad_to_number[event.key]
-                active_key = event.key
+                active_key = event.unicode.lower()
                 active_keypress_time = pygame.time.get_ticks()
                 screen.fill(BG)
-                keycap_random_basename = random.choice(list(media_options[chr(active_key)].keys()))
-                keycap_media = media_options[chr(active_key)][keycap_random_basename]
+                keycap_random_basename = random.choice(list(media_options[active_key].keys()))
+                keycap_media = media_options[active_key][keycap_random_basename]
                 if len(keycap_media[MEDIA_IMG]):
                     keycap_image = random.choice(keycap_media[MEDIA_IMG])
                     if not args.cache:
@@ -248,9 +235,8 @@ while True:
                 pygame.time.wait(args.duration)
 
         if event.type == KEYUP:
-            if event.key in numpad_keys:
-                event.key = numpad_to_number[event.key]
-            if event.key != active_key:
+            dprint(f"KEYUP: {event}")
+            if event.unicode.lower() != active_key:
                 continue
             active_key = None
             screen.fill(BG)
