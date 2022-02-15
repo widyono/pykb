@@ -72,6 +72,7 @@ allowed_keys.update({
     '\\':'backslash',
     '\x08':'delete',
     ' ':'spacebar'})
+previous_basename = {}
 
 # prevent key bounce, spamming
 active_key = None
@@ -253,14 +254,26 @@ while True:
                 if active_key:
                     continue
                 if active_keypress_time > 0 and (pygame.time.get_ticks() - active_keypress_time < (args.duration + HYSTERESIS_MS)):
+                    dprint(f"TOOSOON: {pygame.time.get_ticks()} - {active_keypress_time} < ({args.duration} + {HYSTERESIS_MS})")
                     continue
                 active_key = event.unicode.lower()
                 dprint(f"ACCEPTED: {active_key}")
                 if not args.testing:
                     active_keypress_time = pygame.time.get_ticks()
                     screen.fill(BG)
-                    keycap_random_basename = random.choice(list(media_options[active_key].keys()))
-                    keycap_media = media_options[active_key][keycap_random_basename]
+                    while True:
+                        keycap_random_basename = random.choice(list(media_options[active_key].keys()))
+                        keycap_media = media_options[active_key][keycap_random_basename]
+                        if (len(keycap_media[MEDIA_IMG]) + len(keycap_media[MEDIA_SND]) == 0):
+                            continue
+                        if active_key in previous_basename:
+                            dprint(f"    previous: {previous_basename[active_key]}")
+                            dprint(f"    current: {keycap_random_basename}")
+                            if previous_basename[active_key] == keycap_random_basename:
+                                continue
+                        break
+                    previous_basename[active_key] = keycap_random_basename
+                    dprint(f"    keycap_media = {keycap_media}")
                     if len(keycap_media[MEDIA_IMG]):
                         keycap_image = random.choice(keycap_media[MEDIA_IMG])
                         if not args.cache:
