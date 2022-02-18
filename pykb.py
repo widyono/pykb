@@ -191,12 +191,12 @@ if not args.testing:
 
         # if we have an image without an associated sound (basename is same), then
         #  assign the keycap's default / self-named sound file (ideally the keycap's label voiced aloud)
-        if media_options[keycap][keycap][MEDIA_SND]:
+        if media_options[keycap][keycap_filename][MEDIA_SND]:
             for basename in media_options[keycap]:
                 if basename == keycap:
                     continue
                 if not media_options[keycap][basename][MEDIA_SND]:
-                    media_options[keycap][basename][MEDIA_SND] = media_options[keycap][keycap][MEDIA_SND]
+                    media_options[keycap][basename][MEDIA_SND] = media_options[keycap][keycap_filename][MEDIA_SND]
 
     dprint(f"media_options:\n{pformat(media_options)}")
 
@@ -269,7 +269,9 @@ while True:
                         if active_key in previous_basename:
                             dprint(f"    previous: {previous_basename[active_key]}")
                             dprint(f"    current: {keycap_random_basename}")
-                            if previous_basename[active_key] == keycap_random_basename:
+                            dprint(f"    num_options: {len(media_options[active_key])}")
+                            dprint(f"    options: {media_options[active_key]}")
+                            if previous_basename[active_key] == keycap_random_basename and len(media_options[active_key]) > 1:
                                 continue
                         break
                     previous_basename[active_key] = keycap_random_basename
