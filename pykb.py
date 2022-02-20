@@ -215,7 +215,7 @@ if not args.testing:
     vertical_margin=100
     keycap_height=int(display_height-(vertical_margin*2))
     horizontal_margin=int((display_width-keycap_height)/2)
-    screen = pygame.display.set_mode((display_width,display_height))
+    screen = pygame.display.set_mode(flags=pygame.FULLSCREEN)
 
     # window title
     pygame.display.set_caption("pykb")
