@@ -33,9 +33,7 @@ EXT_IMG = (".jpg",".png",".gif",".jpeg")
 EXT_SND = (".wav", ".ogg", ".mp3")
 
 media_options = {}
-# indexes into media options list for each keycap dict value
-MEDIA_IMG = 0
-MEDIA_SND = 1
+media_stack = {}
 
 # define colours
 BG = (0,0,0)
@@ -53,26 +51,45 @@ HYSTERESIS_MS = 30
 # FPS for display update rate, 60 for minimal responsiveness
 FPS = 60
 
-# which keys to process
+# which keys to process, and filesystem appropriate names for their
+#  respective media files and directories
 allowed_keys = {k:k for k in string.ascii_lowercase + string.digits}
 allowed_keys.update({
     '[':'leftbracket',
     ']':'rightbracket',
+    '{':'leftbrace',
+    '}':'rightbrace',
+    '(':'leftparenthesis',
+    ')':'rightparenthesis',
+    '<':'lessthan',
+    '>':'greaterthan',
     ';':'semicolon',
+    ':':'colon',
     ',':'comma',
     '.':'period',
     '/':'forwardslash',
+    '?':'questionmark',
     '`':'backtick',
     '-':'minus',
     '+':'plus',
     '*':'star',
     '=':'equals',
+    '"':'doublequote',
+    '|':'verticalpipe',
+    '_':'underscore',
+    '~':'tilde',
+    '!':'exclamationpoint',
+    '@':'atsign',
+    '#':'numbersign',
+    '$':'dollarsign',
+    '%':'percent',
+    '^':'caret',
+    '&':'ampersand',
     '\'':'singlequote',
     '\r':'return',
     '\\':'backslash',
     '\x08':'delete',
     ' ':'spacebar'})
-previous_basename = {}
 
 # prevent key bounce, spamming
 active_key = None
@@ -143,8 +160,26 @@ if not args.testing:
         img_ratio_x = img_x / img_max
         img_ratio_y = img_y / img_max
         image = pygame.transform.scale(image, (int(IMG_X * img_ratio_x), int(IMG_Y * img_ratio_y)))
-        dprint(f"Loaded image {pathname}: {img_x} x {img_y}")
+        #dprint(f"Cached image {pathname}: {img_x} x {img_y}")
         return image
+
+    def reset_stack(keycap):
+        keyname = allowed_keys[keycap]
+        tmp_media_list = list(media_options[keycap].keys())
+        dprint(f"    Resetting stack for {keyname}:")
+        dprint(f"        All options: {tmp_media_list}")
+        media_stack[keycap] = [media_options[keycap][keyname]]
+        dprint(f"        Found keycap: {media_options[keycap][keyname]}")
+        dprint(f"        media_stack[keycap] initialized to {media_stack[keycap]}")
+        random.shuffle(tmp_media_list)
+        dprint(f"        randomized_choices: {tmp_media_list}")
+        for option in tmp_media_list:
+            dprint(f"        Randomized choice: {option}")
+            if option == keycap or option == keyname:
+                continue
+            dprint(f"        Found: {media_options[keycap][option]}")
+            media_stack[keycap].extend([media_options[keycap][option]])
+        dprint(f"    Full stack: {media_stack[keycap]}")
 
     for keycap, keycap_filename in allowed_keys.items():
 
@@ -157,7 +192,7 @@ if not args.testing:
                 }
             }
         """
-        media_options[keycap] = defaultdict(lambda: [[], []])
+        media_options[keycap] = defaultdict(lambda: {"MEDIA_IMG":[], "MEDIA_SND":[]})
 
         # by default we create a PNG font image for each keycap
         keycap_repr = keycap.upper()
@@ -176,30 +211,38 @@ if not args.testing:
 
         for (dirpath, dirnames, filenames) in os.walk(keycap_mediadir):
             for filename in filenames:
+                #dprint(f"Checking file {filename}")
                 extension=Path(filename).suffix
                 colonparts=Path(filename).stem.split(':')
+                if colonparts == allowed_keys[keycap]:
+                    colonparts = keycap
                 fullpath=str(keycap_mediadir / f"{filename}")
+                #dprint(f"    fullpath: {fullpath}")
+                #dprint(f"    extension: {extension}")
+                #dprint(f"    colonparts: {colonparts}")
                 if extension in EXT_IMG:
                     if args.cache:
-                        media_options[keycap][colonparts[0]][MEDIA_IMG].append(load_image(fullpath))
+                        media_options[keycap][colonparts[0]]["MEDIA_IMG"].append(load_image(fullpath))
                     else:
-                        media_options[keycap][colonparts[0]][MEDIA_IMG].append(fullpath)
+                        media_options[keycap][colonparts[0]]["MEDIA_IMG"].append(fullpath)
                 elif extension in EXT_SND:
-                    media_options[keycap][colonparts[0]][MEDIA_SND].append(fullpath)
+                    media_options[keycap][colonparts[0]]["MEDIA_SND"].append(fullpath)
                 else:
-                    print(f"Unrecognized filename extension: {fullpath}")
+                    print(f"    Unrecognized filename extension: {fullpath}")
+                dprint(f"    media_options['{keycap}']['{colonparts[0]}']: {media_options[keycap][colonparts[0]]}")
 
         # if we have an image without an associated sound (basename is same), then
         #  assign the keycap's default / self-named sound file (ideally the keycap's label voiced aloud)
-        if media_options[keycap][keycap_filename][MEDIA_SND]:
+        if media_options[keycap][keycap_filename]["MEDIA_SND"]:
             for basename in media_options[keycap]:
                 if basename == keycap:
                     continue
-                if not media_options[keycap][basename][MEDIA_SND]:
-                    media_options[keycap][basename][MEDIA_SND] = media_options[keycap][keycap_filename][MEDIA_SND]
+                if not media_options[keycap][basename]["MEDIA_SND"]:
+                    media_options[keycap][basename]["MEDIA_SND"] = media_options[keycap][keycap_filename]["MEDIA_SND"]
 
-    dprint(f"media_options:\n{pformat(media_options)}")
+        reset_stack(keycap)
 
+    # dprint(f"media_options:\n{pformat(media_options)}")
 
 pygame.init()
 clock = pygame.time.Clock()
@@ -261,28 +304,18 @@ while True:
                 if not args.testing:
                     active_keypress_time = pygame.time.get_ticks()
                     screen.fill(BG)
-                    while True:
-                        keycap_random_basename = random.choice(list(media_options[active_key].keys()))
-                        keycap_media = media_options[active_key][keycap_random_basename]
-                        if (len(keycap_media[MEDIA_IMG]) + len(keycap_media[MEDIA_SND]) == 0):
-                            continue
-                        if active_key in previous_basename:
-                            dprint(f"    previous: {previous_basename[active_key]}")
-                            dprint(f"    current: {keycap_random_basename}")
-                            dprint(f"    num_options: {len(media_options[active_key])}")
-                            dprint(f"    options: {media_options[active_key]}")
-                            if previous_basename[active_key] == keycap_random_basename and len(media_options[active_key]) > 1:
-                                continue
-                        break
-                    previous_basename[active_key] = keycap_random_basename
+                    if not len(media_stack[active_key]):
+                        reset_stack(active_key)
+                    dprint(f"    media_stack[{active_key}]: {media_stack[active_key]}")
+                    keycap_media = media_stack[active_key].pop(0)
                     dprint(f"    keycap_media = {keycap_media}")
-                    if len(keycap_media[MEDIA_IMG]):
-                        keycap_image = random.choice(keycap_media[MEDIA_IMG])
+                    if len(keycap_media["MEDIA_IMG"]):
+                        keycap_image = random.choice(keycap_media["MEDIA_IMG"])
                         if not args.cache:
                             keycap_image = load_image(keycap_image)
                         screen.blit(keycap_image, (horizontal_margin,vertical_margin))
-                    if len(keycap_media[MEDIA_SND]):
-                        pygame.mixer.music.load(random.choice(keycap_media[MEDIA_SND]))
+                    if len(keycap_media["MEDIA_SND"]):
+                        pygame.mixer.music.load(random.choice(keycap_media["MEDIA_SND"]))
                         pygame.mixer.music.play(1)
                     pygame.display.update()
                     pygame.time.wait(args.duration)
@@ -295,7 +328,7 @@ while True:
             if not args.testing:
                 screen.fill(BG)
                 pygame.display.update()
-                if keycap_media[MEDIA_SND]:
+                if keycap_media["MEDIA_SND"]:
                     pygame.mixer.music.stop()
 
     clock.tick(FPS)
