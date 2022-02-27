@@ -34,6 +34,7 @@ EXT_SND = (".wav", ".ogg", ".mp3")
 
 media_options = {}
 media_stack = {}
+keycap_default_media = {}
 
 # define colours
 BG = (0,0,0)
@@ -164,18 +165,33 @@ if not args.testing:
         return image
 
     def reset_stack(keycap):
+        """
+        media_options['o']['o']: {'MEDIA_IMG': [<Surface(500x500x24 SW)>], 'MEDIA_SND': ['o/o.ogg']}
+        media_options['o']['orange']: {'MEDIA_IMG': [<Surface(500x500x24 SW)>], 'MEDIA_SND': ['o/orange.ogg', 'o/orange:es.ogg']}
+        Resetting stack for o:
+            All options: ['o', 'orange']
+            Found keycap: {'MEDIA_IMG': [<Surface(500x500x24 SW)>], 'MEDIA_SND': ['o/o.ogg']}
+            media_stack[keycap] initialized to [{'MEDIA_IMG': [<Surface(500x500x24 SW)>], 'MEDIA_SND': ['o/o.ogg']}]
+            randomized_choices: ['o', 'orange']
+            Randomized choice: o
+            Randomized choice: orange
+            Found: {'MEDIA_IMG': [<Surface(500x500x24 SW)>], 'MEDIA_SND': ['o/orange.ogg', 'o/orange:es.ogg']}
+        Full stack: [{'MEDIA_IMG': [<Surface(500x500x24 SW)>], 'MEDIA_SND': ['o/o.ogg']}, {'MEDIA_IMG': [<Surface(500x500x24 SW)>], 'MEDIA_SND': ['o/orange.ogg', 'o/orange:es.ogg']}]
+        """
         keyname = allowed_keys[keycap]
         tmp_media_list = list(media_options[keycap].keys())
+        # cross product of all images and sounds for particular keycap
+        tmp_all_images, tmp_all_sounds = ((media['MEDIA_IMG'], media['MEDIA_SND']) for media in tmp_media_list)
+        tmp_media_list = ((image, sound) for image in tmp_all_images for sound in tmp_all_sounds)
         dprint(f"    Resetting stack for {keyname}:")
         dprint(f"        All options: {tmp_media_list}")
-        media_stack[keycap] = [media_options[keycap][keyname]]
-        dprint(f"        Found keycap: {media_options[keycap][keyname]}")
+        media_stack[keycap] = [(keycap_default_media[keycap]['MEDIA_IMG'],keycap_default_media[keycap]['MEDIA_SND'])]
         dprint(f"        media_stack[keycap] initialized to {media_stack[keycap]}")
         random.shuffle(tmp_media_list)
-        dprint(f"        randomized_choices: {tmp_media_list}")
         for option in tmp_media_list:
-            dprint(f"        Randomized choice: {option}")
+            dprint(f"        Next randomized basename: {option}")
             if option == keycap or option == keyname:
+                dprint("            (matches already loaded keycap name, skipping)")
                 continue
             dprint(f"        Found: {media_options[keycap][option]}")
             media_stack[keycap].extend([media_options[keycap][option]])
@@ -193,6 +209,7 @@ if not args.testing:
             }
         """
         media_options[keycap] = defaultdict(lambda: {"MEDIA_IMG":[], "MEDIA_SND":[]})
+        keycap_default_media[keycap] = defaultdict(lambda: {"MEDIA_IMG":None, "MEDIA_SND":None})
 
         # by default we create a PNG font image for each keycap
         keycap_repr = keycap.upper()
@@ -222,9 +239,12 @@ if not args.testing:
                 #dprint(f"    colonparts: {colonparts}")
                 if extension in EXT_IMG:
                     if args.cache:
-                        media_options[keycap][colonparts[0]]["MEDIA_IMG"].append(load_image(fullpath))
+                        image_entry = load_image(fullpath)
                     else:
-                        media_options[keycap][colonparts[0]]["MEDIA_IMG"].append(fullpath)
+                        image_entry = fullpath
+                    media_options[keycap][colonparts[0]]["MEDIA_IMG"].append(image_entry)
+                    if colonparts == keycap:
+                        keycap_default_media[keycap]['MEDIA_IMG'] = image_entry
                 elif extension in EXT_SND:
                     media_options[keycap][colonparts[0]]["MEDIA_SND"].append(fullpath)
                 else:
@@ -239,6 +259,7 @@ if not args.testing:
                     continue
                 if not media_options[keycap][basename]["MEDIA_SND"]:
                     media_options[keycap][basename]["MEDIA_SND"] = media_options[keycap][keycap_filename]["MEDIA_SND"]
+            keycap_default_media[keycap]['MEDIA_SND'] = media_options[keycap][keycap_filename]["MEDIA_SND"]
 
         reset_stack(keycap)
 
