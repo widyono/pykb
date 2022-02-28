@@ -179,19 +179,23 @@ if not args.testing:
         Full stack: [{'MEDIA_IMG': [<Surface(500x500x24 SW)>], 'MEDIA_SND': ['o/o.ogg']}, {'MEDIA_IMG': [<Surface(500x500x24 SW)>], 'MEDIA_SND': ['o/orange.ogg', 'o/orange:es.ogg']}]
         """
         keyname = allowed_keys[keycap]
-        tmp_media_list = list(media_options[keycap].keys())
+        dprint(f"Resetting stack for {keyname}:")
+        tmp_media_basenames = list(media_options[keycap].keys())
+        dprint(f"    All file basenames: {tmp_media_basenames}")
+        tmp_all_images = (media_options[keycap][basename]['MEDIA_IMG'] for basename in tmp_media_basenames)
+        tmp_all_sounds = (media_options[keycap][basename]['MEDIA_SND'] for basename in tmp_media_basenames)
+        dprint(f"    All images: {tmp_all_images}")
+        dprint(f"    All sounds: {tmp_all_sounds}")
         # cross product of all images and sounds for particular keycap
-        tmp_all_images, tmp_all_sounds = ((media['MEDIA_IMG'], media['MEDIA_SND']) for media in tmp_media_list)
-        tmp_media_list = ((image, sound) for image in tmp_all_images for sound in tmp_all_sounds)
-        dprint(f"    Resetting stack for {keyname}:")
-        dprint(f"        All options: {tmp_media_list}")
+        tmp_media_list = [(image, sound) for image in tmp_all_images for sound in tmp_all_sounds]
+        dprint(f"    Cross product images x sounds: {tmp_media_list}")
         media_stack[keycap] = [(keycap_default_media[keycap]['MEDIA_IMG'],keycap_default_media[keycap]['MEDIA_SND'])]
-        dprint(f"        media_stack[keycap] initialized to {media_stack[keycap]}")
+        dprint(f"    media_stack[keycap] initialized to {media_stack[keycap]}")
         random.shuffle(tmp_media_list)
         for image, sound in tmp_media_list:
-            if image == keycap_default_media[keycap]['MEDIA_IMG'] && sound == keycap_default_media[keycap]['MEDIA_SND']:
+            if image == keycap_default_media[keycap]['MEDIA_IMG'] and sound == keycap_default_media[keycap]['MEDIA_SND']:
                 continue
-            dprint(f"        Next randomized media entry: {image}, {sound}")
+            dprint(f"    Next randomized media entry: {image}, {sound}")
             media_stack[keycap].append((image,sound))
         dprint(f"    Full stack: {media_stack[keycap]}")
 
