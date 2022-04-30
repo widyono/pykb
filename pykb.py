@@ -109,117 +109,119 @@ parser.add_argument("-D","--debug",action="store_true",default=False,help="Debug
 parser.add_argument("-T","--testing",action="store_true",default=False,help="Testing mode")
 args = parser.parse_args()
 
-if args.testing:
-    args.debug = True
-
-def dprint(*dprint_args,**dprint_kwargs):
-    if args.debug:
+def dprint(*dprint_args,testing=False,**dprint_kwargs):
+    if args.debug or (testing and args.testing):
         print(*dprint_args,**dprint_kwargs)
 
-if not args.testing:
-    if args.mediadir:
-        if os.path.isdir(args.mediadir):
-            mediadir=Path(args.mediadir)
-        else:
-            print(f"{args.mediadir} is not a directory.")
-            exit(1)
-
-    for EXIFTAG_ORIENTATION in ExifTags.TAGS.keys():
-        if ExifTags.TAGS[EXIFTAG_ORIENTATION]=='Orientation':
-            break
-
-    # font to use for default keycap images
-    font_preferences = ['Monaco.ttf', 'Keyboard.ttf']
-    if args.font:
-        font_preferences.insert(0, args.font)
-    found_font = None
-    found_font_name = None
-    for try_font in font_preferences:
-        try:
-            found_font = ImageFont.truetype(try_font, size=IMG_Y)
-            found_font_name = try_font
-            break
-        except OSError:
-            continue
-    if not found_font:
-        print(f"Could not find any of these fonts: {font_preferences}")
+if args.mediadir:
+    if os.path.isdir(args.mediadir):
+        mediadir=Path(args.mediadir)
+    else:
+        print(f"{args.mediadir} is not a directory.")
         exit(1)
-    dprint(f"Using font: {found_font_name}")
 
-    def load_image(pathname):
-        exiftags = Image.open(pathname).getexif()
-        image = pygame.image.load(pathname)
-        if EXIFTAG_ORIENTATION in exiftags:
-            if exiftags[EXIFTAG_ORIENTATION] == 3:
-                image=pygame.transform.rotate(image, 180)
-            elif exiftags[EXIFTAG_ORIENTATION] == 6:
-                image=pygame.transform.rotate(image, 270)
-            elif exiftags[EXIFTAG_ORIENTATION] == 8:
-                image=pygame.transform.rotate(image, 90)
-        (img_x, img_y) = image.get_size()
-        img_max = max(img_x, img_y)
-        img_ratio_x = img_x / img_max
-        img_ratio_y = img_y / img_max
-        image = pygame.transform.scale(image, (int(IMG_X * img_ratio_x), int(IMG_Y * img_ratio_y)))
-        #dprint(f"Cached image {pathname}: {img_x} x {img_y}")
-        return image
+for EXIFTAG_ORIENTATION in ExifTags.TAGS.keys():
+    if ExifTags.TAGS[EXIFTAG_ORIENTATION]=='Orientation':
+        break
 
-    def reset_stack(keycap):
-        """
-        media_options['o']['o']: {'MEDIA_IMG': [<Surface(500x500x24 SW)>], 'MEDIA_SND': ['o/o.ogg']}
-        media_options['o']['orange']: {'MEDIA_IMG': [<Surface(500x500x24 SW)>], 'MEDIA_SND': ['o/orange.ogg', 'o/orange:es.ogg']}
-        Resetting stack for o:
-            All options: ['o', 'orange']
-            Found keycap: {'MEDIA_IMG': [<Surface(500x500x24 SW)>], 'MEDIA_SND': ['o/o.ogg']}
-            media_stack[keycap] initialized to [{'MEDIA_IMG': [<Surface(500x500x24 SW)>], 'MEDIA_SND': ['o/o.ogg']}]
-            randomized_choices: ['o', 'orange']
-            Randomized choice: o
-            Randomized choice: orange
-            Found: {'MEDIA_IMG': [<Surface(500x500x24 SW)>], 'MEDIA_SND': ['o/orange.ogg', 'o/orange:es.ogg']}
-        Full stack: [{'MEDIA_IMG': [<Surface(500x500x24 SW)>], 'MEDIA_SND': ['o/o.ogg']}, {'MEDIA_IMG': [<Surface(500x500x24 SW)>], 'MEDIA_SND': ['o/orange.ogg', 'o/orange:es.ogg']}]
-        """
-        keyname = allowed_keys[keycap]
-        dprint(f"Resetting stack for {keyname}:")
-        tmp_media_basenames = list(media_options[keycap].keys())
-        dprint(f"    All file basenames: {tmp_media_basenames}")
-        tmp_all_images = (media_options[keycap][basename]['MEDIA_IMG'] for basename in tmp_media_basenames)
-        tmp_all_sounds = (media_options[keycap][basename]['MEDIA_SND'] for basename in tmp_media_basenames)
-        dprint(f"    All images: {tmp_all_images}")
-        dprint(f"    All sounds: {tmp_all_sounds}")
-        # cross product of all images and sounds for particular keycap
-        tmp_media_list = [(image, sound) for image in tmp_all_images for sound in tmp_all_sounds]
-        dprint(f"    Cross product images x sounds: {tmp_media_list}")
-        media_stack[keycap] = [(keycap_default_media[keycap]['MEDIA_IMG'],keycap_default_media[keycap]['MEDIA_SND'])]
-        dprint(f"    media_stack[keycap] initialized to {media_stack[keycap]}")
-        random.shuffle(tmp_media_list)
-        for image, sound in tmp_media_list:
-            if image == keycap_default_media[keycap]['MEDIA_IMG'] and sound == keycap_default_media[keycap]['MEDIA_SND']:
-                continue
-            dprint(f"    Next randomized media entry: {image}, {sound}")
-            media_stack[keycap].append((image,sound))
-        dprint(f"    Full stack: {media_stack[keycap]}")
+# font to use for default keycap images
+font_preferences = ['Monaco.ttf', 'Keyboard.ttf']
+if args.font:
+    font_preferences.insert(0, args.font)
+found_font = None
+found_font_name = None
+for try_font in font_preferences:
+    try:
+        found_font = ImageFont.truetype(try_font, size=IMG_Y)
+        found_font_name = try_font
+        break
+    except OSError:
+        continue
+if not found_font:
+    print(f"Could not find any of these fonts: {font_preferences}")
+    exit(1)
+dprint(f"Using font: {found_font_name}")
 
-    for keycap, keycap_filename in allowed_keys.items():
+def load_image(pathname):
+    exiftags = Image.open(pathname).getexif()
+    image = pygame.image.load(pathname)
+    if EXIFTAG_ORIENTATION in exiftags:
+        if exiftags[EXIFTAG_ORIENTATION] == 3:
+            image=pygame.transform.rotate(image, 180)
+        elif exiftags[EXIFTAG_ORIENTATION] == 6:
+            image=pygame.transform.rotate(image, 270)
+        elif exiftags[EXIFTAG_ORIENTATION] == 8:
+            image=pygame.transform.rotate(image, 90)
+    (img_x, img_y) = image.get_size()
+    img_max = max(img_x, img_y)
+    img_ratio_x = img_x / img_max
+    img_ratio_y = img_y / img_max
+    image = pygame.transform.scale(image, (int(IMG_X * img_ratio_x), int(IMG_Y * img_ratio_y)))
+    #dprint(f"Cached image {pathname}: {img_x} x {img_y}")
+    return image
 
-        """
-            media_options = {
-                "keycap_name1": {
-                    "basename1":[["image_filename1"], ["sound_filename1"]], # None if no such file
-                    "basename2":[["image_filename2"], ["sound_filename2_1", "sound_filename2_2"]],
-                    ...
-                }
-            }
-        """
-        media_options[keycap] = defaultdict(lambda: {"MEDIA_IMG":[], "MEDIA_SND":[]})
-        keycap_default_media[keycap] = defaultdict(lambda: {"MEDIA_IMG":None, "MEDIA_SND":None})
+"""
+Resetting stack for j:
+    All file basenames: ['jason', 'j', 'janet']
+    All images: <generator object reset_stack.<locals>.<genexpr> at 0x105107740>
+    All sounds: <generator object reset_stack.<locals>.<genexpr> at 0x1051076d0>
+    Cross product images x sounds: [(['/Users/widyono/pykb-media/j/jason.jpg'], ['/Users/widyono/pykb-media/j/jason.ogg']), (['/Users/widyono/pykb-media/j/jason.jpg'], ['/Users/widyono/pykb-media/j/j.ogg']), (['/Users/widyono/pykb-media/j/jason.jpg'], ['/Users/widyono/pykb-media/j/janet.ogg'])]
+    media_stack[keycap] initialized to [({'MEDIA_IMG': None, 'MEDIA_SND': None}, ['/Users/widyono/pykb-media/j/j.ogg'])]
+    Next randomized media entry: ['/Users/widyono/pykb-media/j/jason.jpg'], ['/Users/widyono/pykb-media/j/janet.ogg']
+    Next randomized media entry: ['/Users/widyono/pykb-media/j/jason.jpg'], ['/Users/widyono/pykb-media/j/jason.ogg']
+    Next randomized media entry: ['/Users/widyono/pykb-media/j/jason.jpg'], ['/Users/widyono/pykb-media/j/j.ogg']
+    Full stack: [({'MEDIA_IMG': None, 'MEDIA_SND': None}, ['/Users/widyono/pykb-media/j/j.ogg']), (['/Users/widyono/pykb-media/j/jason.jpg'], ['/Users/widyono/pykb-media/j/janet.ogg']), (['/Users/widyono/pykb-media/j/jason.jpg'], ['/Users/widyono/pykb-media/j/jason.ogg']), (['/Users/widyono/pykb-media/j/jason.jpg'], ['/Users/widyono/pykb-media/j/j.ogg'])]
+"""
 
-        # by default we create a PNG font image for each keycap
-        keycap_repr = keycap.upper()
-        keycap_mediadir = mediadir / f"{keycap_filename}"
-        keycap_font_imagefile = keycap_mediadir / f"{keycap_filename}.png"
-        os.makedirs(keycap_mediadir,exist_ok=True)
-        if not os.path.exists(keycap_font_imagefile):
-            dprint(f"Creating new keycap image file {keycap_font_imagefile}")
+def reset_stack(keycap):
+    keyname = allowed_keys[keycap]
+    dprint(f"Resetting stack for {keyname}:")
+    tmp_media_basenames = list(media_options[keycap].keys())
+    dprint(f"    All file basenames: {tmp_media_basenames}")
+    tmp_all_images = []
+    tmp_all_sounds = []
+    for basename in tmp_media_basenames:
+        tmp_all_images.extend(media_options[keycap][basename]['MEDIA_IMG'])
+        tmp_all_sounds.extend(media_options[keycap][basename]['MEDIA_SND'])
+    dprint(f"    All images: {[image for image in tmp_all_images]}")
+    dprint(f"    All sounds: {[sound for sound in tmp_all_sounds]}")
+    # cross product of all images and sounds for particular keycap
+    tmp_media_list = [(image, sound) for image in tmp_all_images for sound in tmp_all_sounds]
+    dprint(f"    Cross product images x sounds: {tmp_media_list}")
+    media_stack[keycap] = [(keycap_default_media[keycap][keycap]['MEDIA_IMG'],keycap_default_media[keycap][keycap]['MEDIA_SND'])]
+    #     media_stack[keycap] initialized to [({'MEDIA_IMG': None, 'MEDIA_SND': None}, ['/Volumes/Public/Downloads/pykb-media/x/x.ogg'])]
+    dprint(f"    media_stack[keycap] initialized to {media_stack[keycap]}")
+    random.shuffle(tmp_media_list)
+    for image, sound in tmp_media_list:
+        if image == keycap_default_media[keycap][keycap]['MEDIA_IMG'] and sound == keycap_default_media[keycap][keycap]['MEDIA_SND']:
+            continue
+        dprint(f"    Next randomized media entry: {image}, {sound}")
+        media_stack[keycap].append((image,sound))
+    dprint(f"    Full stack: {media_stack[keycap]}")
+
+
+
+"""
+    media_options['j']['jason']: {'MEDIA_IMG': [], 'MEDIA_SND': ['/Users/widyono/pykb-media/j/jason.ogg']}
+    media_options['j']['j']: {'MEDIA_IMG': ['/Users/widyono/pykb-media/j/j.png'], 'MEDIA_SND': []}
+    media_options['j']['jason']: {'MEDIA_IMG': ['/Users/widyono/pykb-media/j/jason.jpg'], 'MEDIA_SND': ['/Users/widyono/pykb-media/j/jason.ogg']}
+    media_options['j']['j']: {'MEDIA_IMG': ['/Users/widyono/pykb-media/j/j.png'], 'MEDIA_SND': ['/Users/widyono/pykb-media/j/j.ogg']}
+    media_options['j']['janet']: {'MEDIA_IMG': [], 'MEDIA_SND': ['/Users/widyono/pykb-media/j/janet.ogg']}
+    media_options['j']['janet']: {'MEDIA_IMG': ['/Users/widyono/pykb-media/j/janet.jpg'], 'MEDIA_SND': ['/Users/widyono/pykb-media/j/janet.ogg']}
+"""
+for keycap, keycap_filename in allowed_keys.items():
+
+    media_options[keycap] = defaultdict(lambda: {"MEDIA_IMG":[], "MEDIA_SND":[]})
+    dprint(f"\nScanning media for keycap {keycap}, keycap_filename {keycap_filename}...")
+
+    # by default we create a PNG font image for each keycap
+    keycap_repr = keycap.upper()
+    keycap_mediadir = mediadir / f"{keycap_filename}"
+    keycap_font_imagefile = keycap_mediadir / f"{keycap_filename}.png"
+    os.makedirs(keycap_mediadir,exist_ok=True)
+    if not os.path.exists(keycap_font_imagefile):
+        dprint(f"Creating new keycap image file {keycap_font_imagefile}")
+        if not args.testing:
             image = Image.new('RGB', (IMG_X, IMG_Y))
             dl = ImageDraw.Draw(image)
             (width,height)=found_font.getsize(keycap_repr)
@@ -228,44 +230,51 @@ if not args.testing:
             dl.text((xoff,yoff), keycap_repr, font=found_font, fill=FG)
             image.save(str(keycap_font_imagefile),"PNG")
 
-        for (dirpath, dirnames, filenames) in os.walk(keycap_mediadir):
-            for filename in filenames:
-                #dprint(f"Checking file {filename}")
-                extension=Path(filename).suffix
-                colonparts=Path(filename).stem.split(':')
-                if colonparts == allowed_keys[keycap]:
-                    colonparts = keycap
-                fullpath=str(keycap_mediadir / f"{filename}")
-                #dprint(f"    fullpath: {fullpath}")
-                #dprint(f"    extension: {extension}")
-                #dprint(f"    colonparts: {colonparts}")
-                if extension in EXT_IMG:
-                    if args.cache:
-                        image_entry = load_image(fullpath)
-                    else:
-                        image_entry = fullpath
-                    media_options[keycap][colonparts[0]]["MEDIA_IMG"].append(image_entry)
-                    if colonparts == keycap:
-                        keycap_default_media[keycap]['MEDIA_IMG'] = image_entry
-                elif extension in EXT_SND:
-                    media_options[keycap][colonparts[0]]["MEDIA_SND"].append(fullpath)
+    for (dirpath, dirnames, filenames) in os.walk(keycap_mediadir):
+        for filename in filenames:
+            dprint(f"    Checking file {filename}")
+            extension=Path(filename).suffix
+            colonparts=Path(filename).stem.split(':')
+            if colonparts == allowed_keys[keycap]:
+                colonparts = keycap
+            dprint(f"        colonparts = {colonparts}")
+            fullpath=str(keycap_mediadir / f"{filename}")
+            keycap_default_media[keycap] = {colonparts[0]: defaultdict(lambda: {"MEDIA_IMG":None, "MEDIA_SND":None})}
+            dprint(f"    keycap_default_media[{keycap}][{colonparts[0]}] = {keycap_default_media[keycap][colonparts[0]]}")
+            #dprint(f"    fullpath: {fullpath}")
+            #dprint(f"    extension: {extension}")
+            #dprint(f"    colonparts: {colonparts}")
+            if extension in EXT_IMG:
+                if args.cache and not args.testing:
+                    image_entry = load_image(fullpath)
                 else:
-                    print(f"    Unrecognized filename extension: {fullpath}")
-                dprint(f"    media_options['{keycap}']['{colonparts[0]}']: {media_options[keycap][colonparts[0]]}")
+                    image_entry = fullpath
+                media_options[keycap][colonparts[0]]["MEDIA_IMG"].append(image_entry)
+                if colonparts == keycap:
+                    keycap_default_media[keycap]['MEDIA_IMG'] = image_entry
+            elif extension in EXT_SND:
+                media_options[keycap][colonparts[0]]["MEDIA_SND"].append(fullpath)
+            else:
+                print(f"    Unrecognized filename extension: {fullpath}")
+            dprint(f"    media_options['{keycap}']['{colonparts[0]}']: {media_options[keycap][colonparts[0]]}")
 
-        # if we have an image without an associated sound (basename is same), then
-        #  assign the keycap's default / self-named sound file (ideally the keycap's label voiced aloud)
-        if media_options[keycap][keycap_filename]["MEDIA_SND"]:
-            for basename in media_options[keycap]:
-                if basename == keycap:
-                    continue
-                if not media_options[keycap][basename]["MEDIA_SND"]:
-                    media_options[keycap][basename]["MEDIA_SND"] = media_options[keycap][keycap_filename]["MEDIA_SND"]
-            keycap_default_media[keycap]['MEDIA_SND'] = media_options[keycap][keycap_filename]["MEDIA_SND"]
+    # if we have an image without an associated sound (basename is same), then
+    #  assign the keycap's default / self-named sound file (ideally the keycap's label voiced aloud)
+    if media_options[keycap][keycap_filename]["MEDIA_SND"]:
+        for basename in media_options[keycap]:
+            if media_options[keycap][basename]["MEDIA_SND"] and not media_options[keycap][basename]["MEDIA_IMG"]:
+                dprint(f"   found sound but no image for ", testing=True)
+            if media_options[keycap][basename]["MEDIA_IMG"] and not media_options[keycap][basename]["MEDIA_SND"]:
+                dprint(f"   found image but no sound for ", testing=True)
+            if basename == keycap:
+                continue
+            if not media_options[keycap][basename]["MEDIA_SND"]:
+                media_options[keycap][basename]["MEDIA_SND"] = media_options[keycap][keycap_filename]["MEDIA_SND"]
+        keycap_default_media[keycap]['MEDIA_SND'] = media_options[keycap][keycap_filename]["MEDIA_SND"]
 
-        reset_stack(keycap)
+    reset_stack(keycap)
 
-    # dprint(f"media_options:\n{pformat(media_options)}")
+# dprint(f"media_options:\n{pformat(media_options)}")
 
 pygame.init()
 clock = pygame.time.Clock()
@@ -303,7 +312,7 @@ while True:
             sys.exit()
 
         if event.type == KEYDOWN:
-            dprint(f"KEYDOWN: {event}")
+            dprint(f"KEYDOWN: {event}", testing=True)
             # ignore if just a modifier key by itself was pressed
             if event.mod and not event.unicode:
                 continue
@@ -321,7 +330,7 @@ while True:
                     dprint(f"TOOSOON: {pygame.time.get_ticks()} - {active_keypress_time} < ({args.duration} + {HYSTERESIS_MS})")
                     continue
                 active_key = event.unicode.lower()
-                dprint(f"ACCEPTED: {active_key}")
+                dprint(f"ACCEPTED: {active_key}", testing=True)
                 if not args.testing:
                     active_keypress_time = pygame.time.get_ticks()
                     screen.fill(BG)
@@ -342,7 +351,7 @@ while True:
                     pygame.time.wait(args.duration)
 
         if event.type == KEYUP:
-            dprint(f"KEYUP: {event}")
+            dprint(f"KEYUP: {event}", testing=True)
             if event.unicode.lower() != active_key:
                 continue
             active_key = None
