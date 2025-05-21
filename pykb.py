@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 
-import pygame, sys
-from pygame.locals import *
-import os, string, random
+import pygame
+import sys
+from pygame.locals import KEYUP, KEYDOWN, QUIT
+import os
+import string
+import random
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ExifTags
 from collections import defaultdict
 import argparse
-from pprint import pformat
 
 """
 Example media structure
@@ -102,9 +104,9 @@ active_keypress_time = 0
 
 parser = argparse.ArgumentParser(description="Keyboard Playground")
 parser.add_argument("-C","--cache",action="store_true",default=False,help="Cache media in memory")
-parser.add_argument("-f","--font",help=f"Specify font name")
+parser.add_argument("-f","--font",help="Specify font name")
 parser.add_argument("-m","--mediadir",help=f"Alternate media directory (instead of {mediadir})")
-parser.add_argument("-d","--duration",default=DURATION_MS,help=f"Minimum duration (in milliseconds) to display image")
+parser.add_argument("-d","--duration",default=DURATION_MS,help="Minimum duration (in milliseconds) to display image")
 parser.add_argument("-D","--debug",action="store_true",default=False,help="Debug")
 parser.add_argument("-T","--testing",action="store_true",default=False,help="Testing mode")
 args = parser.parse_args()
@@ -263,9 +265,9 @@ for keycap, keycap_filename in allowed_keys.items():
     if media_options[keycap][keycap_filename]["MEDIA_SND"]:
         for basename in media_options[keycap]:
             if media_options[keycap][basename]["MEDIA_SND"] and not media_options[keycap][basename]["MEDIA_IMG"]:
-                dprint(f"   found sound but no image for ", testing=True)
+                dprint("   found sound but no image for ", testing=True)
             if media_options[keycap][basename]["MEDIA_IMG"] and not media_options[keycap][basename]["MEDIA_SND"]:
-                dprint(f"   found image but no sound for ", testing=True)
+                dprint("   found image but no sound for ", testing=True)
             if basename == keycap:
                 continue
             if not media_options[keycap][basename]["MEDIA_SND"]:
@@ -273,8 +275,6 @@ for keycap, keycap_filename in allowed_keys.items():
         keycap_default_media[keycap]['MEDIA_SND'] = media_options[keycap][keycap_filename]["MEDIA_SND"]
 
     reset_stack(keycap)
-
-# dprint(f"media_options:\n{pformat(media_options)}")
 
 pygame.init()
 clock = pygame.time.Clock()
